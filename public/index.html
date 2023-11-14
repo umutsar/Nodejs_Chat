@@ -7,34 +7,22 @@
 </head>
 <body>
     <h2>Giriş Yap</h2>
-    <form id="loginForm">
-        <label for="username">Kullanıcı Adı:</label><br>
-        <input type="text" id="username" name="username"><br>
-        <label for="password">Şifre:</label><br>
-        <input type="password" id="password" name="password"><br><br>
-        <input id="girisYapButonu" type="submit" value="Giriş Yap">
-    </form>
+    <form action="/login" method="post">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required><br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required><br>
+        <button type="submit">Login</button>
+      </form>
+    
+      <script src="/socket.io/socket.io.js"></script>
 
-    <script src="/socket.io/socket.io.js"></script>
     <script>
         const socket = io();
 
-        function login() {                                          const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            socket.emit('login', { username, password });
-        }
-
-        socket.on('loginResponse', (response) => {
-            if (response.success) {
-                window.location.href = "/chat.html";
-            } else {
-                alert("Kullanıcı adı veya şifre hatalı. Lütfen tekrar deneyin.");
-            }
-        });
-
         const loginForm = document.getElementById('loginForm');
         loginForm.addEventListener('submit', (e) => {
-            e.preventDefault(); // Sayfanın yenilenmesini engellemek için
+            e.preventDefault();
             login();
         });
     </script>
