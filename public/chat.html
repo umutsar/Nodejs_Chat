@@ -1,88 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">                                           <head>                                                     <meta charset="UTF-8" />
+<html lang="en">
+   <head>
+      <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Chat</title>                               
-      <style>
-         body {
-            font-family: Arial, sans-serif;
-            background-color: beige;
-         }
-         h2 {
-            font-family: "Trebuchet MS", Helvetica, sans-serif;
-         }
-         #messages {
-            border-radius: 8px;
-            margin: auto;                                           margin-top: 50px;
-            border: 2px solid #ccc;
-            padding: 10px;                                          width: 40vw;
-            max-height: 40vw;
-            overflow: auto;
-         }
-         input[type="text"],
-         input[type="password"],
-         input[type="submit"] {
-            margin-bottom: 10px;
-            padding: 5px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-         }
-
-         #messageHeader {
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            text-align: center;
-         }
-
-         .message {
-            padding: 8px;
-            border-radius: 8px;
-            border: 1px solid grey;
-            margin-bottom: 2px;
-         }
-
-         .userOfMessage {
-            display: inline-block;
-            color: red;
-         }
-
-         .onlyMessage {
-            display: inline-block;
-         }
-
-         #inputs {
-            display: block;
-            margin: auto;
-            margin-top: 30px;
-            width: 25vw;
-         }
-
-         #girisYapButonu {
-            background-color: #4caf50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-         }
-         #girisYapButonu:hover {
-            background-color: #45a049;
-         }
-      </style>
+      <title>Chat</title>
+      <link rel="stylesheet" href="/css/chat.css" />
    </head>
    <body>
-      <div id="messages">
-         <p id="messageHeader" class="message" style="color: chocolate">
-            MESAJLAŞIN LAN!
+      <div id="kapsayici">
+         <p id="messageHeader" style="color: chocolate">
+            ~Genel Sohbet~
          </p>
+         <div id="messages">
+            <!-- <div id="pseudoDiv"></div> -->
+         </div>
       </div>
-
       <div id="inputs">
          <input type="text" id="messageInput" />
          <button id="girisYapButonu" onclick="sendMessage()">Gönder</button>
       </div>
 
-      <script src="/socket.io/socket.io.js"></script>
+      <script src="../socket.io/socket.io.js"></script>
+      
       <script>
          const socket = io();
 
@@ -106,7 +45,7 @@
             const messageElement = document.createElement("div");
             messageElement.setAttribute("class", "message");
             messageElement.innerHTML = `
-                <div class="userOfMessage">${data["username"]}</div>
+                <div class="userOfMessage">${data["username"]}: </div>
                 <div class="onlyMessage">${data["message"]}</div>
             `;
             messages.appendChild(messageElement);
