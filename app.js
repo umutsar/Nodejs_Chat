@@ -1,164 +1,100 @@
 const express = require("express");
-const http = require("http");
-const socketIo = require("socket.io");
 const session = require("express-session");
-const cookieParser = require("cookie-parser");
-const sqlite3 = require("sqlite3");
-const jwt = require("jsonwebtoken");
-const path = require("path");
+const socketIo = require("socket.io");
+const sqlite3 = require("sqlite3").verbose();
+const http = require("http");
+const bodyParser = require("body-parser");
 
 const app = express();
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
 app.use(
-   session({ secret: "mySecretKey", resave: true, saveUninitialized: true })
+   session({
+      secret: "mySecretKey",
+      resave: false,
+      saveUninitialized: true,
+   })
 );
-
-app.use('/public', express.static(path.join(__dirname, 'public')));
-
-app.use(
-   "/socket.io",
-   express.static(__dirname + "/node_modules/socket.io/client-dist")
-);
-app.use(express.static(__dirname + "/public"));
-
-const jwt_secretKey = "gizliAnahtar1067";
+app.use(bodyParser.urlencoded({ extended: true }));
 
 const server = http.createServer(app);
 const io = socketIo(server);
 
 const db = new sqlite3.Database("mesajlar.db");
 
-let users;
-db.all("SELECT kullaniciadi, sifre FROM kullanicilar", [], (err, rows) => {
-   if (err) {
-      reject(err);
-   }
-
-   users = rows.map((row) => ({
-      username: row.kullaniciadi,
-      password: row.sifre,
-   }));
-});
+const users = [
+   { username: "admin", password: "pass" },
+   { username: "user2", password: "pass2" },
+];
 
 function authenticateUser(req, res, next) {
    if (req.session && req.session.user) {
       return next();
    } else {
-      res.redirect("/index.html");
+      res.redirect("/login.html");
    }
 }
 
+let username, password;
 
-// Giriş sayfası
-app.get("/", (req, res) => {
-   res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// Giriş kontrolü
 app.post("/login", (req, res) => {
-   const { username, password } = req.body;
-   const kullaniciBilgisi = { userId: username, passwd: password };
-   console.log(username, password);
+   username = req.body.username;
+   password = req.body.password;
+
+   // Kullanıcı bilgilerini kontrol et
    const user = users.find(
       (u) => u.username === username && u.password === password
    );
 
    if (user) {
-      req.session.user = user;
+      // Oturum açma başarılı ise kullanıcı bilgilerini oturum içinde sakla
+      req.session.user = { username };
       res.redirect("/chat");
    } else {
-      res.send("Invalid username or password. Please try again.");
+      res.send("Geçersiz kullanıcı adı veya şifre. Tekrar deneyin.");
    }
 });
 
-// Ana sayfa
-let geciciToken;
+app.get("/", (req, res) => {
+   res.redirect("/login.html")
+})
+
 app.get("/chat", authenticateUser, (req, res) => {
-   if (req.session.user) {
-      console.log("\nYönlendirildi.");
-      console.log(req.session.user);
-      geciciToken = jwt.sign(req.session.user, jwt_secretKey, {
-         expiresIn: "1h",
-      });
-      console.log("\nToken oluşturuldu, çerez oluşturmaya gidiliyor...");
-      console.log("Oluşturulan Token: ", geciciToken);
-
-      res.cookie("kullanici_cerezi", geciciToken);
-      console.log("\nCookie(çerez) oluşturuldu.");
-      res.sendFile(path.join(__dirname, "public", "index.html"));
-   } else {
-      res.redirect("/");
-   }
+   console.log(username, password);
+   res.send(
+      `Hoş geldiniz, ${req.session.user.username}! <a href="/logout">Çıkış Yap</a>`
+   );
 });
 
-app.get("/chat.html", authenticateUser, (req, res) => {
-   if (req.session.user) {
-      console.log("\nYönlendirildi.");
-      console.log(req.session.user);
-      geciciToken = jwt.sign(req.session.user, jwt_secretKey, {
-         expiresIn: "1h",
-      });
-      console.log("\nToken oluşturuldu, çerez oluşturmaya gidiliyor...");
-      console.log("Oluşturulan Token: ", geciciToken);
-
-      res.cookie("kullanici_cerezi", geciciToken);
-      console.log("\nCookie(çerez) oluşturuldu.");
-      res.sendFile(path.join(__dirname, "public", "index.html"));
-   } else {
-      res.redirect("/");
-   }
-});
-
-app.get("/cerez", (req, res) => {
-   if (req.session.user) {
-      let olusturulan_cerez = req.cookies.kullanici_cerezi;
-
-      if (olusturulan_cerez) {
-         jwt.verify(olusturulan_cerez, jwt_secretKey, (err, decoded) => {
-            if (err) {
-               res.send("Oturum süreniz doldu. Tekrardan giriş yapınız. ");
-            } else {
-               // Kullanıcı bilgilerini göster
-               console.log(
-                  "Oluşturulan şifreli çerez içeriği: ",
-                  olusturulan_cerez
-               );
-               console.log("Çözülen çerez: ", decoded);
-            }
-         });
-      }
-   } else {
-      res.redirect("/");
-   }
+app.get("/logout", (req, res) => {
+   res.send(`Görüşmek üzere ${req.session.user.username}...`);
+   req.session.destroy();
 });
 
 io.on("connection", (socket) => {
-   console.log("bağlandı.");
+
+
    socket.on("sendMessage", (data) => {
       const message = data.trim();
       console.log(message);
       if (message == "/deleteall") {
          db.run("DELETE FROM messages;");
          io.emit("deleteAllMessages");
-      } else if (message.slice(0, 5) === "clear" && message.length == 6) {
-         db.run(
-            `DELETE FROM messages WHERE id IN (SELECT id FROM messages ORDER BY id DESC LIMIT ${message[5]});`
-         );
-         io.emit("sondanSil", message[5]);
-         console.log("oldu.");
-      } else if (message.slice(0, 5) === "clear" && message.length == 7) {
-         let sum = message[5] + message[6];
-         db.run(
-            `DELETE FROM messages WHERE id IN (SELECT id FROM messages ORDER BY id DESC LIMIT ${sum});`
-         );
-         io.emit("sondanSil", sum);
-         console.log("oldu2");
-      } else {
-         io.emit("message", { username: currentUsername, message: message }); // Kullanıcı adı ile birlikte mesajı gönder
+      } 
+      else if(message.slice(0, 5) === 'clear' && message.length == 6){
+        db.run(`DELETE FROM messages WHERE id IN (SELECT id FROM messages ORDER BY id DESC LIMIT ${message[5]});`);
+        io.emit("sondanSil", message[5])
+        console.log("oldu.")
+      }
+      else if(message.slice(0, 5) === 'clear' && message.length == 7) {
+        let sum = message[5] + message[6]
+        db.run(`DELETE FROM messages WHERE id IN (SELECT id FROM messages ORDER BY id DESC LIMIT ${sum});`);
+        io.emit("sondanSil", sum)
+        console.log("oldu2")
+      }
+      else {
+         io.emit("message", { username: "admin", message: message }); // Kullanıcı adı ile birlikte mesajı gönder
          db.run(
             "INSERT INTO messages (message, username) VALUES (?, ?)",
-            [message, currentUsername],
+            [message, "admin"],
             function (err) {
                if (err) {
                   return console.log(err.message);
@@ -168,6 +104,7 @@ io.on("connection", (socket) => {
          );
       }
    });
+
    socket.on("getInitialMessages", () => {
       db.all("SELECT * FROM messages", (err, rows) => {
          if (err) {
@@ -183,7 +120,11 @@ io.on("connection", (socket) => {
    });
 });
 
-const port = 3000;
-app.listen(port, () => {
-   console.log(`Server is running at http://localhost:${port}/index.html`);
+app.use(express.static(__dirname + "/public"));
+
+const HOST = "0.0.0.0";
+const PORT = 3000;
+
+server.listen(PORT, HOST, () => {
+   console.log(`http://localhost:${PORT}/`);
 });
